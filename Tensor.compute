@@ -1,0 +1,203 @@
+// Each #kernel tells which function to compile; you can have many kernels
+//#pragma kernel CSMain
+#pragma kernel Lines
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+Texture2D<float4> inputTexture;
+RWStructuredBuffer<float3> circles;
+int circleLen;
+RWStructuredBuffer<float4> lines;
+int linesLen;
+
+int mapsize;
+SamplerState samplerinputTexture;
+//RWTexture2D<float4> Random;
+
+float random(float2 st)
+{
+    return frac(sin(dot(st.xy,
+                         float2(12.9898, 78.233))) *
+        43758.5453123);
+}
+float2 Trig(float theta, float major)
+{
+    const float PI = 3.141592653589793;
+    float2 result;
+    
+        result = float2(cos(theta + major * PI / 2), sin(theta + major * PI / 2));
+
+    
+    return result;
+}
+
+float findtheta(float2 id)
+{
+    const float episilon = 0.0000001;
+    const float scale = 100.0;
+    ///float randomcolor = random(floor(id.xy / 1.) * 1.);
+    //randomcolor = round(randomcolor - 0.1);
+
+    float2 direction = float2(0, 0);
+
+    /*const int circleLen = 3;
+    const float3 circles[circleLen] =
+    {
+        float3(668, 668, 1),
+        float3(360, 668, 1),
+        float3(500, 360., 1.)
+    };*/
+
+    float2 floatingD = float2(float(id.x), float(id.y));
+    float width;
+    float height;
+    Result.GetDimensions(width, height);
+    float selfID = inputTexture.SampleLevel(samplerinputTexture, float2(id.xy) / float2(width, height), 0).a;
+
+    for (int c = 0; c < circleLen; ++c)
+    {
+        float2 origin = circles[c].xy;
+        if ( abs(inputTexture.SampleLevel(samplerinputTexture, origin / float2(width, height), 0).a == selfID) )
+        {
+            float decay = circles[c].z;
+            float2 usingVEC = floatingD - origin;
+            float2 PreDirection = float2((usingVEC.y * usingVEC.y) - (usingVEC.x * usingVEC.x), -2.0 * usingVEC.x * usingVEC.y);
+            PreDirection = normalize(PreDirection);
+
+            float distanceaway = length(usingVEC) / scale;
+            PreDirection = PreDirection * (exp(-(distanceaway * distanceaway) * decay) + episilon);
+            direction += PreDirection;
+        }
+    }
+    for (int l = 0; l < linesLen; ++l)
+    {
+        float2 origin = lines[l].xy;
+        if (abs(inputTexture.SampleLevel(samplerinputTexture,origin / float2(width, height), 0).a == selfID) )
+        {
+            float decay = 1;
+            lines[l].w;
+            float2 usingVEC = floatingD - origin;
+            float2 PreDirection = float2(cos(2 * lines[l].z), sin(2 * lines[l].z));
+            PreDirection = normalize(PreDirection);
+
+            float distanceaway = length(usingVEC) / scale;
+            PreDirection = PreDirection * (exp(-(distanceaway * distanceaway) * decay) + episilon);
+            direction += PreDirection;
+        }
+        
+    }
+    if (direction.x == 0)
+    {
+        if (direction.y != 0)
+        {
+            return sign(direction.y) * (3.141592653589793 / 2);
+        }
+        return 0;
+    }
+    return atan2(direction.y, direction.x) / 2.;
+}
+
+//[numthreads(8,8,1)]
+/*float findtheta (float2 id)
+{
+    // TODO: insert actual code here!
+    const float episilon = 0.0000001;
+    const float scale = 60.0;
+    float randomcolor = random(floor(id.xy/1.)*1.);
+    randomcolor = round(randomcolor-0.1);
+    //float theta = 0;
+    float2 direction = float2(0, 0);
+    // <circles>
+    const int circleLen = 2;
+    const float3 circles[circleLen] =
+    {
+        float3(668,668,1),
+        float3(360, 668, 1)
+    };
+    float2 floatingD = float2(float(id.x), float(id.y));
+    for (int c = 0; c < circleLen; ++c)
+    {
+        
+        float2 origin = circles[c].xy;
+        float decay = circles[c].z;
+        float2 usingVEC = floatingD-origin;
+        float2 PreDirection = float2((usingVEC.y * usingVEC.y) - (usingVEC.x * usingVEC.x), -2.0 * usingVEC.x * usingVEC.y);
+        PreDirection = normalize(PreDirection);
+        
+        /*if (dot(PreDirection, direction) < 0.)
+        {
+            PreDirection = -PreDirection;
+        }//
+        float distanceaway = length(usingVEC)/scale;
+        PreDirection = PreDirection * (exp(-(distanceaway * distanceaway) * decay) + episilon);
+        direction += PreDirection;
+        
+        
+    }
+    // </circles>
+    
+    /*
+    float2 center = float2(668, 668);
+    float2 direction = (float2(id.xy) - center);
+    theta = atan2(direction.y, direction.x);//
+    //direction = float2(pow(float(id.y), 2.) - pow(float(id.x), 2.), -2 * float(id.x) * float(id.y));
+    return atan2(direction.y, direction.x)/2.;
+    /*if (direction.x == 0)
+    {
+        theta = 0;
+    }//
+    
+    //Random[id.xy] = float4(randomcolor, randomcolor, randomcolor, 1);
+    //randomcolor = random(id.xy);
+    ////theta /= 3.141592653589793;
+    ////Result[id.xy] = float4(randomcolor, randomcolor, randomcolor, theta);
+}*/
+[numthreads(8, 8, 1)]
+void Lines(uint3 id : SV_DispatchThreadID)
+{
+    const float PI = 3.141592653589793;
+    float width;
+    float height;
+    Result.GetDimensions(width, height);
+    
+    float2 scale = float2(width, height);
+    float2 atpos = float2(id.xy);// / float2(width, height);
+    float2 negatpos = atpos;
+    
+    //float2 posdir = float2(0,0);
+    float2 prevdir = float2(0, 0);
+    //float directiontheta = inputTexture.SampleLevel(samplerinputTexture, atpos / float2(width, height), 0).r;
+    //directiontheta *= PI;
+    //posdir = Trig(directiontheta, 1);
+    //float2 negdir = -posdir;
+    //float2 prevdir = posdir;
+    //float2 prevneg = negdir;
+    
+    float color = 0; //round(random(atpos-0.2));
+    //inputTexture.SampleLevel(samplerinputTexture, atpos, 0);
+    
+    const int linelength = 66;
+    for (int i = 0; i < linelength; ++ i)
+    {
+        
+        float directiontheta = findtheta(atpos); //inputTexture.SampleLevel(samplerinputTexture, atpos/float2(width,height), 0).a;
+        //directiontheta *= PI;
+        float2 posdir = Trig(directiontheta, 0);
+        
+        if (dot(posdir, prevdir) < 0)
+        {
+            posdir = -posdir;
+        }
+        atpos += normalize(posdir);
+        prevdir = posdir;
+        
+        float original = round(random(floor(atpos/3)) - 0.2);
+        color += original;
+        
+    }
+    float result = color / linelength;
+    float4 thetaoriginal = inputTexture.SampleLevel(samplerinputTexture, float2(id.xy) / float2(width, height), 0);
+    Result[id.xy] = float4(thetaoriginal.r, result, 0, thetaoriginal.a);
+    
+}
