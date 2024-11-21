@@ -1361,7 +1361,7 @@ public class Matrix : MonoBehaviour
 
         //Debug.Log("complete " + seedQ.Count);
     }
-    private MeshCollider placeholder;
+    //private MeshCollider placeholder;
     const float realifescalefactor = 16;
     const float reallifescale = textureSize / realifescalefactor;
     private static int2 playerposition;
