@@ -6,7 +6,6 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UIElements;
-using static UnityEditor.Progress;
 
 
 public class Matrix : MonoBehaviour
